@@ -64,6 +64,8 @@ path_to_dataset_w = path_to_dataset + '/'
 
 # ------------
 
+print("NOTE: Running this file may take several minutes.")
+
 regex_pattern = r'\b(?:{})\b'.format('|'.join(map(re.escape, wake_words)))
 pattern = re.compile(regex_pattern, flags=re.IGNORECASE)
 def wake_words_search(pattern, word):
@@ -158,6 +160,7 @@ def generate_voices(word):
           print(f"generated {file_count} files in {end-start} seconds")
 
 # Voices generation with Google Cloud text-to-speech API
+print("Generating audios with Google Cloud text-to-speech API:")
 for word in wake_words:
   generate_voices(word)
 
@@ -498,7 +501,8 @@ def audio_transform(audio_data):
 
 # --- Training
 
-epochs = 20
+# epochs = 20
+epochs = 30
 
 # config for progress bar
 mb = master_bar(range(epochs))
@@ -597,6 +601,6 @@ with open(path_to_dataset_w + 'model_data.json', 'w') as archivo:
     "num_fft": num_fft,
     "sample_rate": sr,
     "train_epochs": epochs,
-    "log_offset": log_offset,
-    "original_path": path_to_dataset_w + 'model_trained.pt'
+    "original_path": path_to_dataset_w + 'model_trained.pt',
+    "final_validation_loss": valid_mean_min
   }))

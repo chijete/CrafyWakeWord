@@ -36,7 +36,7 @@ print(f"Total clips available in Train {train_data.shape[0]}")
 print(f"Total clips available in Dev {dev_data.shape[0]}")
 print(f"Total clips available in Test {test_data.shape[0]}")
 
-train_data.head()
+# print(train_data.columns)
 
 # sys.exit()
 
