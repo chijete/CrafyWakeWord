@@ -1,0 +1,12 @@
+{
+  "common_voice_datapath": "corpus/cv-corpus-15.0-2023-09-08/es/",
+  "wake_words": [
+    "almeja",
+    "cerebro",
+    "patata"
+  ],
+  "google_credentials_file": "cloud_credentials.json",
+  "mfa_DICTIONARY_PATH": "mfa/spanish_mfa.dict",
+  "mfa_ACOUSTIC_MODEL_PATH": "mfa/spanish_mfa.zip",
+  "dataset_language": "es"
+}
