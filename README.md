@@ -8,6 +8,11 @@ CrafyWakeWord it's a library focused on AI-based wake word recognition.
 - TensorFlow and TensorFlow.js supported.
 - Step by step explanation.
 
+## Demo
+You can see an online demo here:
+- English demo: https://chijete.github.io/CrafyWakeWord_demo/en/
+- Spanish demo: https://chijete.github.io/CrafyWakeWord_demo/es/
+
 ## Use pre-trained models
 You can download pre-trained models in multiple languages ​​from this repository: https://github.com/chijete/CrafyWakeWord_models
 
@@ -123,3 +128,14 @@ After porting the model to TensorFlow, run the following commands:
 	10. ? Do you want to provide metadata? **ENTER**
 	11. ? Which directory do you want to save the converted model in? `dataset/web_model`
 5. The TensorFlow.js model will be saved in `dataset/web_model`
+
+## Credits and thanks
+
+This library was developed following these instructions: https://github.com/rajashekar/WakeWordDetector/
+
+We thank Rajashekar very much for his excellent work and explanation captured here: https://www.rajashekar.org/wake-word/
+
+Additional thanks to:
+- [Mozilla Common Voice](https://commonvoice.mozilla.org/ "Mozilla Common Voice")
+- [Montreal Forced Aligner](https://montreal-forced-aligner.readthedocs.io/ "Montreal Forced Aligner")
+- [Google Cloud Text-to-Speech API](https://cloud.google.com/text-to-speech "Google Cloud Text-to-Speech API")

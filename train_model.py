@@ -463,6 +463,9 @@ else:
 print(f"Mean is {zmuv_transform.mean.item():0.6f}")
 print(f"Standard Deviation is {zmuv_transform.std.item():0.6f}")
 
+zmuv_mean = zmuv_transform.mean.item()
+zmuv_std = zmuv_transform.std.item()
+
 learning_rate = 0.001
 weight_decay = 0.0001 # Weight regularization
 lr_decay = 0.95
@@ -471,6 +474,7 @@ criterion = nn.CrossEntropyLoss()
 params = list(filter(lambda x: x.requires_grad, model.parameters()))
 optimizer = AdamW(params, learning_rate, weight_decay=weight_decay)
 
+log_offset = 1e-7
 num_mels = 40 # https://en.wikipedia.org/wiki/Mel_scale
 num_fft = 512 # window length - Fast Fourier Transform
 hop_length = 200  # making hops of size hop_length each time to sample the next window
@@ -488,7 +492,7 @@ def audio_transform(audio_data):
                                     hop_length=hop_length,
                                     norm='slaney')
   mel_spectrogram.to(device)
-  log_mels = mel_spectrogram(audio_data.float()).add_(1e-7).log_().contiguous()
+  log_mels = mel_spectrogram(audio_data.float()).add_(log_offset).log_().contiguous()
   # returns (channel, n_mels, time)
   return log_mels.to(device)
 
@@ -582,3 +586,17 @@ else:
 path_to_dataset_w
 
 torch.save(model.state_dict(), path_to_dataset_w + 'model_trained.pt')
+
+with open(path_to_dataset_w + 'model_data.json', 'w') as archivo:
+  archivo.write(json.dumps({
+    "zmuv_mean": zmuv_mean,
+    "zmuv_std": zmuv_std,
+    "window_size": 750,
+    "hop_length": hop_length,
+    "num_mels": num_mels,
+    "num_fft": num_fft,
+    "sample_rate": sr,
+    "train_epochs": epochs,
+    "log_offset": log_offset,
+    "original_path": path_to_dataset_w + 'model_trained.pt'
+  }))
