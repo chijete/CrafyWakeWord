@@ -1,8 +1,17 @@
 # CrafyWakeWord
 CrafyWakeWord it's a library focused on AI-based wake word recognition.
 
+## ⭐ Features and functions
+- Custom wake word recognition.
+- Multiple language support.
+- Models portable to other platforms.
+- TensorFlow and TensorFlow.js supported.
+- Step by step explanation.
+
 ## Use pre-trained models
-TODO
+You can download pre-trained models in multiple languages ​​from this repository: https://github.com/chijete/CrafyWakeWord_models
+
+**Tip:** If you want to download a single model and not clone the entire repository, you can use this tool to download a single folder from a git repository: https://download-directory.github.io/
 
 ## Create your own model
 With this tool you can create your custom wake word detection model.
@@ -102,15 +111,15 @@ After porting the model to TensorFlow, run the following commands:
 2. `conda activate tfjsconverter`
 3. `pip install tensorflowjs[wizard]`
 4. `tensorflowjs_wizard`
-	a. ? Please provide the path of model file or the directory that contains model files. `dataset/tf_model_trained`
-	b. ? What is your input model format? `Tensorflow Saved Model *`
-	c. ? What is tags for the saved model? `serve`
-	d. ? What is signature name of the model? `serving_default`
-	e. ? Do you want to compress the model? `No compression (Higher accuracy)`
-	f. ? Please enter shard size (in bytes) of the weight files? `4194304`
-	g. ? Do you want to skip op validation? `No`
-	h. ? Do you want to strip debug ops? `Yes`
-	i. ? Do you want to enable Control Flow V2 ops? `Yes`
-	j. ? Do you want to provide metadata? **ENTER**
-	k. ? Which directory do you want to save the converted model in? `dataset/web_model`
+	1. ? Please provide the path of model file or the directory that contains model files. `dataset/tf_model_trained`
+	2. ? What is your input model format? `Tensorflow Saved Model *`
+	3. ? What is tags for the saved model? `serve`
+	4. ? What is signature name of the model? `serving_default`
+	5. ? Do you want to compress the model? `No compression (Higher accuracy)`
+	6. ? Please enter shard size (in bytes) of the weight files? `4194304`
+	7. ? Do you want to skip op validation? `No`
+	8. ? Do you want to strip debug ops? `Yes`
+	9. ? Do you want to enable Control Flow V2 ops? `Yes`
+	10. ? Do you want to provide metadata? **ENTER**
+	11. ? Which directory do you want to save the converted model in? `dataset/web_model`
 5. The TensorFlow.js model will be saved in `dataset/web_model`
