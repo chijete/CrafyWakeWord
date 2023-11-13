@@ -1,0 +1,1 @@
+Paste here the Montreal Forced Aligner Pronunciation dictionary and Acoustic model files.
