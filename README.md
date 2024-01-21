@@ -25,7 +25,7 @@ For example, you can create a model to detect when the user says the word "banan
 ### Prerequisites
 - Have [Python](https://www.python.org/downloads/ "Python") 3 installed.
 - Have [Miniconda](https://docs.conda.io/projects/miniconda/en/latest/ "Miniconda") or [Anaconda](https://www.anaconda.com/download# "Anaconda") installed.
-- Have a verified Google Cloud account (we will use the Google Cloud text-to-speech api to improve the dataset, more information below).
+- Have a verified Google Cloud account (we will use the Google Cloud text-to-speech api to improve the dataset, more information below; the free plan is enough).
 
 ### 1. Download voice dataset
 The first step is to obtain a dataset of transcribed audios.
@@ -45,12 +45,12 @@ Follow these steps:
 Run this commands in your terminal (conda activate first) or Anaconda terminal:
 - `pip install librosa textgrid torchsummary ffmpeg-python pocketsphinx fastprogress chardet PyAudio clang pgvector hdbscan initdb speechbrain`
 - `pip install --upgrade google-cloud-texttospeech`
-- `pip install --only-binary :all: pynini`
+- `pip install --only-binary :all: pynini` or `conda install conda-forge::pynini`
 - `conda install -c conda-forge kalpy`
 - `pip install montreal-forced-aligner`
 - `conda install -c conda-forge sox`
-- `pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu`
-- `pip install ffmpeg onnx tensorflow numpy onnx_tf tensorflow_probability`
+- `pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu` (Installing PyTorch with CPU, complete instructions on https://pytorch.org/get-started/locally/ - you can use GPU acceleration).
+- `pip install ffmpeg onnx tensorflow numpy onnx_tf tensorflow_probability ipython`
 
 Install PostgreSQL from https://www.enterprisedb.com/downloads/postgres-postgresql-downloads
 When the installation is finished, add PostgreSQL to the System Path:
@@ -95,6 +95,8 @@ Run these commands within your conda environment:
 ### 7. Test the model
 You can test the detection of wake words by running the `use_model.py` file and saying the words in order as shown in the console. (It is necessary to have a microphone connected).
 
+**Note:** This tutorial is primarily designed for Windows.
+
 ## Port a model to another platform
 The resulting file when creating a model with CrafyWakeWord is a PyTorch model file (.pt).
 You can port this model to other platforms such as ONNX or TensorFlow.
@@ -112,9 +114,9 @@ You can port this model to other platforms such as ONNX or TensorFlow.
 
 #### Port model to TensorFlow.js
 After porting the model to TensorFlow, run the following commands:
-1. `conda create -n tfjsconverter python=3.6.8`
+1. `conda create -n tfjsconverter python=3.6.8` (only in first execution)
 2. `conda activate tfjsconverter`
-3. `pip install tensorflowjs[wizard]`
+3. `pip install tensorflowjs[wizard]` (only in first execution)
 4. `tensorflowjs_wizard`
 	1. ? Please provide the path of model file or the directory that contains model files. `dataset/tf_model_trained`
 	2. ? What is your input model format? `Tensorflow Saved Model *`
@@ -128,6 +130,18 @@ After porting the model to TensorFlow, run the following commands:
 	10. ? Do you want to provide metadata? **ENTER**
 	11. ? Which directory do you want to save the converted model in? `dataset/web_model`
 5. The TensorFlow.js model will be saved in `dataset/web_model`
+
+## Train another model
+
+Before training another model, make sure to make a copy and delete the following files/directories:
+
+- `dataset/tf_model_trained/`
+- `dataset/web_model/`
+- `dataset/model_data.json`
+- `dataset/model_trained.pt`
+- `dataset/onnx_model_trained.onnx`
+- `dataset/tf_model_trained.tflite`
+- `dataset/zmuv.pt.bin`
 
 ## Credits and thanks
 

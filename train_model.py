@@ -66,6 +66,22 @@ path_to_dataset_w = path_to_dataset + '/'
 
 print("NOTE: Running this file may take several minutes.")
 
+def list_files(mypath):
+  return [mypath + f for f in listdir(mypath) if isfile(join(mypath, f))]
+
+def getWavAudioDuration(nombre_archivo):
+  with wave.open(nombre_archivo, 'rb') as archivo_audio:
+    # Obtén la frecuencia de muestreo (número de muestras por segundo)
+    frecuencia_muestreo = archivo_audio.getframerate()
+    # Obtén el número total de frames (muestras)
+    num_frames = archivo_audio.getnframes()
+    # Calcula la duración en segundos
+    duracion = num_frames / frecuencia_muestreo
+  return duracion
+
+noise_test = list_files('noise/noise_test/')
+noise_train_complete = list_files('noise/noise_train/')
+
 regex_pattern = r'\b(?:{})\b'.format('|'.join(map(re.escape, wake_words)))
 pattern = re.compile(regex_pattern, flags=re.IGNORECASE)
 def wake_words_search(pattern, word):
@@ -82,6 +98,30 @@ positive_test_data = pd.read_csv(path_to_dataset_w+'positive/test.csv')
 negative_train_data = pd.read_csv(path_to_dataset_w+'negative/train.csv')
 negative_dev_data = pd.read_csv(path_to_dataset_w+'negative/dev.csv')
 negative_test_data = pd.read_csv(path_to_dataset_w+'negative/test.csv')
+
+# Add vanilla noise to negative dataset
+
+max_noise_duration = 90000
+
+for noiseItemPath in noise_train_complete:
+  noiseItemDuration = round(getWavAudioDuration(noiseItemPath) * 1000, 1)
+  if noiseItemDuration <= max_noise_duration:
+    negative_train_data = pd.concat([negative_train_data, pd.DataFrame([{
+      'path': noiseItemPath,
+      'sentence': 'Hsdflkjhsdf lhskldhfañsljf sñdlkfjñsdf',
+      'timestamps': {},
+      'duration': noiseItemDuration
+    }])], ignore_index=True)
+
+for noiseItemPath in noise_test:
+  noiseItemDuration = round(getWavAudioDuration(noiseItemPath) * 1000, 1)
+  if noiseItemDuration <= max_noise_duration:
+    negative_test_data = pd.concat([negative_test_data, pd.DataFrame([{
+      'path': noiseItemPath,
+      'sentence': 'Hsdflkjhsdf lhskldhfañsljf sñdlkfjñsdf',
+      'timestamps': {},
+      'duration': noiseItemDuration
+    }])], ignore_index=True)
 
 # max duration in positive dataset
 print(f"Max duration in positive train {positive_train_data['duration'].max()}")
@@ -210,12 +250,6 @@ for word in wake_words:
   print(word + f" (2) Total word {(train_ds[[wake_words_search(word_pattern, sentence) for sentence in train_ds['sentence']]].size/train_ds.size) * 100} %")
 
 # --- Add noise
-
-def list_files(mypath):
-  return [mypath + f for f in listdir(mypath) if isfile(join(mypath, f))]
-
-noise_test = list_files('noise/noise_test/')
-noise_train_complete = list_files('noise/noise_train/')
 
 noise_train = noise_train_complete[:int(len(noise_train_complete) * 0.8)]
 noise_dev = noise_train_complete[int(len(noise_train_complete) * 0.8):]

@@ -108,6 +108,9 @@ pytorch_model.eval()
 input_size = (1, 40, 61)
 # generate dummy data
 dummy_input = torch.rand(batch_size, *input_size).type(torch.FloatTensor).to(device=device)
+if torch.cuda.is_available():
+  dummy_input.to('cuda')
+  pytorch_model.to('cuda')
 # generate onnx file
 torch.onnx.export(
   pytorch_model,
