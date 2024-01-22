@@ -1,9 +1,9 @@
 {
   "common_voice_datapath": "corpus/cv-corpus-15.0-2023-09-08/es/",
   "wake_words": [
-    "hola",
-    "pato",
-    "perro"
+    "almeja",
+    "cerebro",
+    "patata"
   ],
   "google_credentials_file": "cloud_credentials.json",
   "mfa_DICTIONARY_PATH": "mfa/spanish_mfa.dict",
