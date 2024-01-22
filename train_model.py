@@ -58,6 +58,9 @@ wake_word_seq_map = dict(zip(wake_words, wake_words_sequence))
 sr = 16000
 
 dataset_language = config_datos['dataset_language']
+add_vanilla_noise_to_negative_dataset = config_datos['add_vanilla_noise_to_negative_dataset']
+generateVoicesWithGoogle = config_datos['voices_generation_with_google']
+windowSizeFromConfig = config_datos['window_size_ms']
 
 path_to_dataset = 'dataset'
 path_to_dataset_w = path_to_dataset + '/'
@@ -65,6 +68,9 @@ path_to_dataset_w = path_to_dataset + '/'
 # ------------
 
 print("NOTE: Running this file may take several minutes.")
+
+wake_words_withOOV = wake_words[:]
+wake_words_withOOV.append("oov")
 
 def list_files(mypath):
   return [mypath + f for f in listdir(mypath) if isfile(join(mypath, f))]
@@ -103,25 +109,27 @@ negative_test_data = pd.read_csv(path_to_dataset_w+'negative/test.csv')
 
 max_noise_duration = 90000
 
-for noiseItemPath in noise_train_complete:
-  noiseItemDuration = round(getWavAudioDuration(noiseItemPath) * 1000, 1)
-  if noiseItemDuration <= max_noise_duration:
-    negative_train_data = pd.concat([negative_train_data, pd.DataFrame([{
-      'path': noiseItemPath,
-      'sentence': 'Hsdflkjhsdf lhskldhfañsljf sñdlkfjñsdf',
-      'timestamps': {},
-      'duration': noiseItemDuration
-    }])], ignore_index=True)
+if add_vanilla_noise_to_negative_dataset:
 
-for noiseItemPath in noise_test:
-  noiseItemDuration = round(getWavAudioDuration(noiseItemPath) * 1000, 1)
-  if noiseItemDuration <= max_noise_duration:
-    negative_test_data = pd.concat([negative_test_data, pd.DataFrame([{
-      'path': noiseItemPath,
-      'sentence': 'Hsdflkjhsdf lhskldhfañsljf sñdlkfjñsdf',
-      'timestamps': {},
-      'duration': noiseItemDuration
-    }])], ignore_index=True)
+  for noiseItemPath in noise_train_complete:
+    noiseItemDuration = round(getWavAudioDuration(noiseItemPath) * 1000, 1)
+    if noiseItemDuration <= max_noise_duration:
+      negative_train_data = pd.concat([negative_train_data, pd.DataFrame([{
+        'path': noiseItemPath,
+        'sentence': 'Hsdflkjhsdf lhskldhfañsljf sñdlkfjñsdf',
+        'timestamps': {},
+        'duration': noiseItemDuration
+      }])], ignore_index=True)
+
+  for noiseItemPath in noise_test:
+    noiseItemDuration = round(getWavAudioDuration(noiseItemPath) * 1000, 1)
+    if noiseItemDuration <= max_noise_duration:
+      negative_test_data = pd.concat([negative_test_data, pd.DataFrame([{
+        'path': noiseItemPath,
+        'sentence': 'Hsdflkjhsdf lhskldhfañsljf sñdlkfjñsdf',
+        'timestamps': {},
+        'duration': noiseItemDuration
+      }])], ignore_index=True)
 
 # max duration in positive dataset
 print(f"Max duration in positive train {positive_train_data['duration'].max()}")
@@ -200,9 +208,10 @@ def generate_voices(word):
           print(f"generated {file_count} files in {end-start} seconds")
 
 # Voices generation with Google Cloud text-to-speech API
-print("Generating audios with Google Cloud text-to-speech API:")
-for word in wake_words:
-  generate_voices(word)
+if generateVoicesWithGoogle:
+  print("Generating audios with Google Cloud text-to-speech API:")
+  for word in wake_words:
+    generate_voices(word)
 
 for word in wake_words:
   d = {}
@@ -297,7 +306,7 @@ class AudioCollator(object):
 
   def __call__(self, batch):
     batch_tensor = {}
-    window_size_ms = 750
+    window_size_ms = windowSizeFromConfig
     max_length = int(window_size_ms/1000 * sr)
     audio_tensors = []
     labels = []
@@ -328,7 +337,7 @@ class AudioCollator(object):
 
       # Add noise
       if self.noise_set:
-        noise_level =  random.randint(1, 5)/10 # 10 to 50%
+        noise_level =  random.randint(5, 30)/100 # 5 to 30%
         noise_sample = librosa.core.load(self.noise_set[random.randint(0,len(self.noise_set)-1)], sr=sr, mono=True)[0]
         # randomly select first or last seq of noise
         if random.random() < 0.5:
@@ -536,7 +545,7 @@ def audio_transform(audio_data):
 # --- Training
 
 # epochs = 20
-epochs = 30
+epochs = config_datos['train_epochs']
 
 # config for progress bar
 mb = master_bar(range(epochs))
@@ -629,12 +638,17 @@ with open(path_to_dataset_w + 'model_data.json', 'w') as archivo:
   archivo.write(json.dumps({
     "zmuv_mean": zmuv_mean,
     "zmuv_std": zmuv_std,
-    "window_size": 750,
+    "window_size": windowSizeFromConfig,
     "hop_length": hop_length,
     "num_mels": num_mels,
     "num_fft": num_fft,
     "sample_rate": sr,
+    "log_offset": log_offset,
     "train_epochs": epochs,
     "original_path": path_to_dataset_w + 'model_trained.pt',
-    "final_validation_loss": valid_mean_min
+    "final_validation_loss": valid_mean_min,
+    "train_epochs": epochs,
+    "classes": wake_words_withOOV,
+    "classes_base": wake_words,
+    "vanilla_noise_in_negative_dataset": add_vanilla_noise_to_negative_dataset
   }))

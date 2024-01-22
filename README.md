@@ -84,6 +84,9 @@ Edit `your_config.json` file:
 - `"mfa_DICTIONARY_PATH"` is the path, relative to the root directory, where your downloaded Montreal Forced Aligner Pronunciation dictionary file is located.
 - `"mfa_ACOUSTIC_MODEL_PATH"` is the path, relative to the root directory, where your downloaded Montreal Forced Aligner Acoustic model file is located.
 - `"dataset_language"` is the [ISO 639-1 code](https://en.wikipedia.org/wiki/List_of_ISO_639-1_codes "ISO 639-1 code") of the target language. Example: `"en"`
+- `"window_size_ms"` is the number of milliseconds of the model's listening time window.
+- `"train_epochs"` is the number of epochs for which the model will be trained.
+- `"add_vanilla_noise_to_negative_dataset"` determines whether to add the base noise to the negative dataset.
 
 ### 6. Prepare and train the model
 Run these commands within your conda environment:
@@ -133,7 +136,7 @@ After porting the model to TensorFlow, run the following commands:
 
 ## Train another model
 
-Before training another model, make sure to make a copy and delete the following files/directories:
+Before training a new model for the same trigger words, make a copy and delete the following files/directories:
 
 - `dataset/tf_model_trained/`
 - `dataset/web_model/`
@@ -142,6 +145,15 @@ Before training another model, make sure to make a copy and delete the following
 - `dataset/onnx_model_trained.onnx`
 - `dataset/tf_model_trained.tflite`
 - `dataset/zmuv.pt.bin`
+
+Before training a completely new model, make sure to make a copy and delete the following files/directories:
+
+- `dataset/`
+
+You may need to update the contents of the following folders if you change the language:
+
+- `corpus/`
+- `mfa/`
 
 ## Credits and thanks
 

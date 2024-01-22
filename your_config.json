@@ -1,12 +1,16 @@
 {
   "common_voice_datapath": "corpus/cv-corpus-15.0-2023-09-08/es/",
   "wake_words": [
-    "almeja",
-    "cerebro",
-    "patata"
+    "hola",
+    "pato",
+    "perro"
   ],
   "google_credentials_file": "cloud_credentials.json",
   "mfa_DICTIONARY_PATH": "mfa/spanish_mfa.dict",
   "mfa_ACOUSTIC_MODEL_PATH": "mfa/spanish_mfa.zip",
-  "dataset_language": "es"
+  "dataset_language": "es",
+  "window_size_ms": 750,
+  "train_epochs": 30,
+  "add_vanilla_noise_to_negative_dataset": true,
+  "voices_generation_with_google": true
 }

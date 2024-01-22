@@ -175,7 +175,7 @@ CHUNK = 500
 FORMAT = pyaudio.paInt16
 CHANNELS = 1
 RATE = sr
-RECORD_MILLI_SECONDS = 750
+RECORD_MILLI_SECONDS = config_datos['window_size_ms']
 
 stream = p.open(format=FORMAT,
                 channels=CHANNELS,
