@@ -5,3 +5,7 @@
 /mfa/spanish_mfa.zip
 /LEER.txt
 /dataset_backups/
+/custom_dataset/clips/
+/custom_dataset/train.csv
+/custom_dataset/test.csv
+/custom_dataset/dev.csv

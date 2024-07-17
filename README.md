@@ -87,6 +87,8 @@ Edit `your_config.json` file:
 - `"window_size_ms"` is the number of milliseconds of the model's listening time window.
 - `"train_epochs"` is the number of epochs for which the model will be trained.
 - `"add_vanilla_noise_to_negative_dataset"` determines whether to add the base noise to the negative dataset.
+- `"voices_generation_with_google"` determines whether or not to generate synthetic voices with Google Cloud.
+- `"custom_dataset_path"` (string or empty string) the path to the directory of your custom dataset. You can get more information in the "Custom datasets" section.
 
 ### 6. Prepare and train the model
 Run these commands within your conda environment:
@@ -154,6 +156,21 @@ You may need to update the contents of the following folders if you change the l
 
 - `corpus/`
 - `mfa/`
+
+## Custom datasets
+
+To improve model training you can add a custom dataset.
+
+The dataset must have a format similar to Mozilla Common Voice: an audio dataset with its corresponding transcription.
+
+To add a custom dataset you must create a directory in the root of the project with the following structure:
+
+- `clips/` **(mandatory)** a directory containing all the audio clips in the dataset in MP3 format.
+- `train.csv` **(mandatory)** a table in CSV format with the columns "path" and "sentence". In the "path" column a string must be entered with the full name of the audio clip file (example: "audio_123.mp3"), audio clips must be saved inside the `clips/` folder; and in the "sentence" column a string must be entered with the complete transcription of the audio clip (example: "Ducks can fly"). The audio clips that will be used for training must be listed in this file.
+- `dev.csv` **(optional)** same structure as `train.csv`. The audio clips that will be used for dev must be listed in this file.
+- `test.csv` **(optional)** same structure as `train.csv`. The audio clips that will be used for test must be listed in this file.
+
+To use the custom dataset, before performing the training steps, the value of `"custom_dataset_path"` in `your_config.json` must be set to the path of the directory where the custom dataset is located (relative to the root directory). Example: "custom_dataset/". If you want not to use a custom dataset, then set the value of `"custom_dataset_path"` to an empty string.
 
 ## Credits and thanks
 

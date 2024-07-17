@@ -7,6 +7,7 @@ import soundfile
 import json
 import math
 import os
+import shutil
 from os import listdir
 from os.path import isfile, join
 import json
@@ -32,13 +33,31 @@ train_data = pd.read_csv(common_voice_datapath + 'train.tsv', sep='\t')
 dev_data = pd.read_csv(common_voice_datapath + 'dev.tsv', sep='\t')
 test_data = pd.read_csv(common_voice_datapath + 'test.tsv', sep='\t')
 
+if len(config_datos['custom_dataset_path']) > 0:
+  if os.path.isdir(config_datos['custom_dataset_path'] + 'clips'):
+    if os.path.exists(config_datos['custom_dataset_path'] + 'train.csv'):
+      custom_train_data = pd.read_csv(config_datos['custom_dataset_path'] + 'train.csv')
+      for customAudioPath in custom_train_data['path']:
+        shutil.copy(config_datos['custom_dataset_path'] + 'clips/' + customAudioPath, common_voice_datapath + '/clips/')
+      train_data = pd.concat([train_data, custom_train_data], ignore_index=True)
+    if os.path.exists(config_datos['custom_dataset_path'] + 'dev.csv'):
+      custom_dev_data = pd.read_csv(config_datos['custom_dataset_path'] + 'dev.csv')
+      for customAudioPath in custom_dev_data['path']:
+        shutil.copy(config_datos['custom_dataset_path'] + 'clips/' + customAudioPath, common_voice_datapath + '/clips/')
+      dev_data = pd.concat([dev_data, custom_dev_data], ignore_index=True)
+    if os.path.exists(config_datos['custom_dataset_path'] + 'test.csv'):
+      custom_test_data = pd.read_csv(config_datos['custom_dataset_path'] + 'test.csv')
+      for customAudioPath in custom_test_data['path']:
+        shutil.copy(config_datos['custom_dataset_path'] + 'clips/' + customAudioPath, common_voice_datapath + '/clips/')
+      test_data = pd.concat([test_data, custom_test_data], ignore_index=True)
+
 print(f"Total clips available in Train {train_data.shape[0]}")
 print(f"Total clips available in Dev {dev_data.shape[0]}")
 print(f"Total clips available in Test {test_data.shape[0]}")
 
-# print(train_data.columns)
+print(train_data.columns)
 
-# sys.exit()
+sys.exit()
 
 regex_pattern = r'\b(?:{})\b'.format('|'.join(map(re.escape, wake_words)))
 pattern = re.compile(regex_pattern, flags=re.IGNORECASE)
