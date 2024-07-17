@@ -55,9 +55,9 @@ print(f"Total clips available in Train {train_data.shape[0]}")
 print(f"Total clips available in Dev {dev_data.shape[0]}")
 print(f"Total clips available in Test {test_data.shape[0]}")
 
-print(train_data.columns)
+# print(train_data.columns)
 
-sys.exit()
+# sys.exit()
 
 regex_pattern = r'\b(?:{})\b'.format('|'.join(map(re.escape, wake_words)))
 pattern = re.compile(regex_pattern, flags=re.IGNORECASE)
