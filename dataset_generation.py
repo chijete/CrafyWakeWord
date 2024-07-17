@@ -100,7 +100,11 @@ print(f"Total clips available in Test without wake words {negative_test_data.sha
 # save dateframes to json files
 jsons_container_folder = 'dataset/json/'
 
-os.mkdir('dataset')
+if not os.path.isdir('dataset'):
+  os.mkdir('dataset')
+
+if os.path.isdir(jsons_container_folder):
+  shutil.rmtree(jsons_container_folder)
 os.mkdir(jsons_container_folder)
 
 positive_train_data.to_json(jsons_container_folder + 'positive_train_data.json')
@@ -115,10 +119,14 @@ negative_test_data.to_json(jsons_container_folder + 'negative_test_data.json')
 wake_word_datapath = 'dataset'
 
 positive_audios_container_folder = 'dataset/positive/audio/'
+if os.path.isdir('dataset/positive'):
+  shutil.rmtree('dataset/positive')
 os.mkdir('dataset/positive')
 os.mkdir(positive_audios_container_folder)
 
 negative_audios_container_folder = 'dataset/negative/audio/'
+if os.path.isdir('dataset/negative'):
+  shutil.rmtree('dataset/negative')
 os.mkdir('dataset/negative')
 os.mkdir(negative_audios_container_folder)
 

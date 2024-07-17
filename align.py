@@ -1,10 +1,13 @@
 import subprocess
 import json
 import os
+import shutil
 
 with open('your_config.json', 'r') as archivo_json:
   config_datos = json.load(archivo_json)
 
+if os.path.isdir('dataset/aligned_data'):
+  shutil.rmtree('dataset/aligned_data')
 os.mkdir('dataset/aligned_data')
 
 # Define el comando que deseas ejecutar
