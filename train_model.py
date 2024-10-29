@@ -67,6 +67,14 @@ path_to_dataset_w = path_to_dataset + '/'
 
 # ------------
 
+ttsConfig = config_datos['tts_generated_clips']
+
+if (ttsConfig['rate']['start'] >= 0.25 and ttsConfig['rate']['start'] <= 4.0 and ttsConfig['rate']['stop'] >= 0.25 and ttsConfig['rate']['stop'] <= 4.0 and ttsConfig['rate']['start'] <= ttsConfig['rate']['stop']) and (ttsConfig['pitch']['start'] >= -20.0 and ttsConfig['pitch']['start'] <= 20.0 and ttsConfig['pitch']['stop'] >= -20.0 and ttsConfig['pitch']['stop'] <= 20.0 and ttsConfig['pitch']['start'] <= ttsConfig['pitch']['stop']):
+  i7512 = 1
+else:
+  print('your_config.json > tts_generated_clips invalid values. rate must be in the range [0.25, 4.0] and pitch must be in the range [-20.0, 20.0], and start must be lower than stop.')
+  sys.exit()
+
 print("NOTE: Running this file may take several minutes.")
 
 wake_words_withOOV = wake_words[:]
@@ -174,9 +182,11 @@ def generate_voices(word):
   # Performs the list voices request
   voices = client.list_voices()
   # Get english voices
+
   en_voices =  [voice.name for voice in voices.voices if voice.name.split("-")[0] == dataset_language]
-  speaking_rates = np.arange(0.25, 4.25, 0.25).tolist()
-  pitches = np.arange(-10.0, 10.0, 2).tolist()
+  speaking_rates = np.arange(ttsConfig['rate']['start'], ttsConfig['rate']['stop'], ttsConfig['rate']['step']).tolist()
+  pitches = np.arange(ttsConfig['pitch']['start'], ttsConfig['pitch']['stop'], ttsConfig['pitch']['step']).tolist()
+
   file_count = 0
   start = time.time()
 
@@ -629,8 +639,6 @@ if not train_on_gpu:
   print('CUDA is not available.  Training on CPU ...')
 else:
   print('CUDA is available!  Training on GPU ...')
-
-path_to_dataset_w
 
 torch.save(model.state_dict(), path_to_dataset_w + 'model_trained.pt')
 

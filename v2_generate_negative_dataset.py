@@ -1,14 +1,20 @@
 import pandas as pd
 import numpy as np
 import json
-import json
 import sys
 import librosa
 import soundfile as sf
 import os
 import shutil
+import argparse
+
+parser = argparse.ArgumentParser(description='V2 negative dataset gen')
+parser.add_argument('-limit', type=int, required=False, help='Limit of audio clips')
+args = parser.parse_args()
 
 generated_dataset_limit = 5000
+if args.limit:
+  generated_dataset_limit = args.limit
 
 with open('your_config.json', 'r') as archivo_json:
   config_datos = json.load(archivo_json)

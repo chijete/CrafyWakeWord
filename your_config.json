@@ -12,6 +12,18 @@
   "window_size_ms": 750,
   "train_epochs": 30,
   "add_vanilla_noise_to_negative_dataset": true,
-  "voices_generation_with_google": false,
-  "custom_dataset_path": "custom_dataset/"
+  "voices_generation_with_google": true,
+  "custom_dataset_path": "custom_dataset/",
+  "tts_generated_clips": {
+    "rate": {
+      "start": 0.5,
+      "stop": 2.0,
+      "step": 0.25
+    },
+    "pitch": {
+      "start": -10.0,
+      "stop": 10.0,
+      "step": 5.0
+    }
+  }
 }

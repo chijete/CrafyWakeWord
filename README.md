@@ -25,7 +25,7 @@ For example, you can create a model to detect when the user says the word "banan
 ### Prerequisites
 - Have [Python](https://www.python.org/downloads/ "Python") 3 installed.
 - Have [Miniconda](https://docs.conda.io/projects/miniconda/en/latest/ "Miniconda") or [Anaconda](https://www.anaconda.com/download# "Anaconda") installed.
-- Have a verified Google Cloud account (we will use the Google Cloud text-to-speech api to improve the dataset, more information below; the free plan is enough).
+- Have a verified Google Cloud account (we will use the [Google Cloud Text-to-Speech API](https://console.cloud.google.com/apis/library/texttospeech.googleapis.com "Google Cloud Text-to-Speech API") to improve the dataset, more information below; the free plan is enough).
 
 ### 1. Download voice dataset
 The first step is to obtain a dataset of transcribed audios.
@@ -89,6 +89,9 @@ Edit `your_config.json` file:
 - `"add_vanilla_noise_to_negative_dataset"` determines whether to add the base noise to the negative dataset.
 - `"voices_generation_with_google"` determines whether or not to generate synthetic voices with Google Cloud.
 - `"custom_dataset_path"` (string or empty string) the path to the directory of your custom dataset. You can get more information in the "Custom datasets" section.
+- `"tts_generated_clips"` config of clips generation with the Google Cloud Text-to-Speech API.
+	- `"rate"` Speed ​​range of the voices of the generated audios (start, stop and step for np.arange). Min 0.25, max 4.0.
+	- `"pitch"` Pitch ​​range of the voices of the generated audios (start, stop and step for np.arange). Min -20.0, max 20.0.
 
 ### 6. Prepare and train the model
 Run these commands within your conda environment:
