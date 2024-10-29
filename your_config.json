@@ -12,6 +12,6 @@
   "window_size_ms": 750,
   "train_epochs": 30,
   "add_vanilla_noise_to_negative_dataset": true,
-  "voices_generation_with_google": true,
+  "voices_generation_with_google": false,
   "custom_dataset_path": "custom_dataset/"
 }
