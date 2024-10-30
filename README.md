@@ -1,6 +1,11 @@
 # CrafyWakeWord
 CrafyWakeWord it's a library focused on AI-based wake word recognition.
 
+# NEW VERSION ⚠️🚀
+We have launched CrafyWakeWord2: the new version of CrafyWakeWord that offers better results.
+
+Link: https://github.com/chijete/CrafyWakeWord2
+
 ## ⭐ Features and functions
 - Custom wake word recognition.
 - Multiple language support.
