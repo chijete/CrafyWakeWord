@@ -1,10 +1,14 @@
 # CrafyWakeWord
 CrafyWakeWord it's a library focused on AI-based wake word recognition.
 
-# NEW VERSION ⚠️🚀
-We have launched CrafyWakeWord2: the new version of CrafyWakeWord that offers better results.
+# ALTERNATIVE VERSION 🚀
+We have launched CrafyWakeWord2: CrafyWakeWord2 is an alternative version of this library that uses wav2vec2 retraining.
+
+Running CrafyWakeWord2 is noticeably more resource-intensive.
 
 Link: https://github.com/chijete/CrafyWakeWord2
+
+⚠️ We currently recommend CrafyWakeWord.
 
 ## ⭐ Features and functions
 - Custom wake word recognition.
@@ -122,7 +126,7 @@ You can port this model to other platforms such as ONNX or TensorFlow.
 ### Port model to TensorFlow
 1. Verify that the PyTorch model is located in the path `dataset/model_trained.pt`
 2. Run this command in the root of the directory where you cloned the repository: `python convert_to_onnx.py`
-3. Run this command: `python convert_onnx_to_tf.py`
+3. Run this command: `python convert_onnx_to_tf.py` (If that doesn't work, run `python convert_onnx_to_tf_onlyLinux.py` in a Linux environment like WSL or Ubuntu.).
 4. The TensorFlow model will be saved in `dataset/tf_model_trained`, and the TensorFlow Lite model will be saved in `dataset/tf_model_trained.tflite`
 
 #### Port model to TensorFlow.js
@@ -179,6 +183,10 @@ To add a custom dataset you must create a directory in the root of the project w
 - `test.csv` **(optional)** same structure as `train.csv`. The audio clips that will be used for test must be listed in this file.
 
 To use the custom dataset, before performing the training steps, the value of `"custom_dataset_path"` in `your_config.json` must be set to the path of the directory where the custom dataset is located (relative to the root directory). Example: "custom_dataset/". If you want not to use a custom dataset, then set the value of `"custom_dataset_path"` to an empty string.
+
+## File names
+
+Files ending in "_old" correspond to the previous CrafyWakeWord training format.
 
 ## Credits and thanks
 

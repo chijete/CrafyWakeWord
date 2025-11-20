@@ -12,6 +12,7 @@ from torchsummary import summary
 from torchaudio.transforms import MelSpectrogram, ComputeDeltas
 
 from torch.optim.adamw import AdamW
+from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts
 
 import textgrid
 
@@ -114,7 +115,6 @@ negative_dev_data = pd.read_csv(path_to_dataset_w+'negative/dev.csv')
 negative_test_data = pd.read_csv(path_to_dataset_w+'negative/test.csv')
 
 # Add vanilla noise to negative dataset
-
 max_noise_duration = 90000
 
 if add_vanilla_noise_to_negative_dataset:
@@ -124,7 +124,7 @@ if add_vanilla_noise_to_negative_dataset:
     if noiseItemDuration <= max_noise_duration:
       negative_train_data = pd.concat([negative_train_data, pd.DataFrame([{
         'path': noiseItemPath,
-        'sentence': 'Hsdflkjhsdf lhskldhfañsljf sñdlkfjñsdf',
+        'sentence': 'Hsdflkjhsdf lhskldhfansljf sndlkfjnsdf',
         'timestamps': {},
         'duration': noiseItemDuration
       }])], ignore_index=True)
@@ -134,7 +134,7 @@ if add_vanilla_noise_to_negative_dataset:
     if noiseItemDuration <= max_noise_duration:
       negative_test_data = pd.concat([negative_test_data, pd.DataFrame([{
         'path': noiseItemPath,
-        'sentence': 'Hsdflkjhsdf lhskldhfañsljf sñdlkfjñsdf',
+        'sentence': 'Hsdflkjhsdf lhskldhfansljf sndlkfjnsdf',
         'timestamps': {},
         'duration': noiseItemDuration
       }])], ignore_index=True)
@@ -269,7 +269,6 @@ for word in wake_words:
   print(word + f" (2) Total word {(train_ds[[wake_words_search(word_pattern, sentence) for sentence in train_ds['sentence']]].size/train_ds.size) * 100} %")
 
 # --- Add noise
-
 noise_train = noise_train_complete[:int(len(noise_train_complete) * 0.8)]
 noise_dev = noise_train_complete[int(len(noise_train_complete) * 0.8):]
 
@@ -311,8 +310,9 @@ def compute_labels(metadata, audio_data):
   return label, audio_data
 
 class AudioCollator(object):
-  def __init__(self, noise_set=None):
+  def __init__(self, noise_set=None, device='cpu'):
     self.noise_set = noise_set
+    self.device = device
 
   def __call__(self, batch):
     batch_tensor = {}
@@ -355,22 +355,24 @@ class AudioCollator(object):
         else:
           audio_data = (1 - noise_level) * audio_data +  noise_level * noise_sample[-max_length:]
 
-      audio_tensors.append(torch.from_numpy(audio_data))
+      # Convert to tensor and send to device immediately
+      audio_tensor = torch.from_numpy(audio_data).to(self.device)
+      audio_tensors.append(audio_tensor)
       labels.append(label)
 
     batch_tensor = {
-        'audio': torch.stack(audio_tensors),
-        'labels': torch.tensor(labels)
+        'audio': torch.stack(audio_tensors),  # Already on correct device
+        'labels': torch.tensor(labels, device=self.device)
     }
 
     return batch_tensor
 
 # --- Prepare for train
-
 batch_size = 16
 num_workers = 0
 
-train_audio_collator = AudioCollator(noise_set=noise_train)
+# Pass device to collators so they create tensors on GPU directly
+train_audio_collator = AudioCollator(noise_set=noise_train, device=device)
 train_dl = tud.DataLoader(train_ds.to_dict(orient='records'),
                   batch_size=batch_size,
                   drop_last=True,
@@ -378,65 +380,124 @@ train_dl = tud.DataLoader(train_ds.to_dict(orient='records'),
                   num_workers=num_workers,
                   collate_fn=train_audio_collator)
 
-dev_audio_collator = AudioCollator(noise_set=noise_dev)
+dev_audio_collator = AudioCollator(noise_set=noise_dev, device=device)
 dev_dl = tud.DataLoader(dev_ds.to_dict(orient='records'),
                   batch_size=batch_size,
                   num_workers=num_workers,
                   collate_fn=dev_audio_collator)
 
-test_audio_collator = AudioCollator(noise_set=noise_test)
+test_audio_collator = AudioCollator(noise_set=noise_test, device=device)
 test_dl = tud.DataLoader(test_ds.to_dict(orient='records'),
                   batch_size=batch_size,
                   num_workers=num_workers,
                   collate_fn=test_audio_collator)
 
-zmuv_audio_collator = AudioCollator()
+# For ZMUV, use CPU since we're just calculating statistics
+zmuv_audio_collator = AudioCollator(device='cpu')
 zmuv_dl = tud.DataLoader(train_ds.to_dict(orient='records'),
                   batch_size=1,
                   num_workers=num_workers,
                   collate_fn=zmuv_audio_collator)
 
-class CNN(nn.Module):
-  def __init__(self, num_labels, num_maps1, num_maps2, num_hidden_input, hidden_size):
-    super(CNN, self).__init__()
-    conv0 = nn.Conv2d(1, num_maps1, (8, 16), padding=(4, 0), stride=(2, 2), bias=True)
-    pool = nn.MaxPool2d(2)
-    conv1 = nn.Conv2d(num_maps1, num_maps2, (5, 5), padding=2, stride=(2, 1), bias=True)
-    self.num_hidden_input = num_hidden_input
-    self.encoder1 = nn.Sequential(conv0,
-                                  nn.ReLU(),
-                                  pool,
-                                  nn.BatchNorm2d(num_maps1, affine=True))
-    self.encoder2 = nn.Sequential(conv1,
-                                  nn.ReLU(),
-                                  pool,
-                                  nn.BatchNorm2d(num_maps2, affine=True))
-    self.output = nn.Sequential(nn.Linear(num_hidden_input, hidden_size),
-                                nn.ReLU(),
-                                nn.Dropout(0.1),
-                                nn.Linear(hidden_size, num_labels))
+# IMPROVED MODEL WITH DEPTHWISE SEPARABLE CONVOLUTIONS AND RESIDUAL CONNECTIONS
+class DepthwiseSeparableConv2d(nn.Module):
+    def __init__(self, in_channels, out_channels, kernel_size, padding=0, stride=1, bias=True):
+        super(DepthwiseSeparableConv2d, self).__init__()
+        self.depthwise = nn.Conv2d(in_channels, in_channels, kernel_size=kernel_size, 
+                                  padding=padding, stride=stride, groups=in_channels, bias=bias)
+        self.pointwise = nn.Conv2d(in_channels, out_channels, kernel_size=1, bias=bias)
+    
+    def forward(self, x):
+        x = self.depthwise(x)
+        x = self.pointwise(x)
+        return x
 
-  def forward(self, x):
-    x = x[:, :1] # log_mels only
-    x = x.permute(0, 1, 3, 2)  # (time, n_mels)
-    # pass through first conv layer
-    x1 = self.encoder1(x)
-    # pass through second conv layer
-    x2 = self.encoder2(x1)
-    # flattening - keep first dim batch same, flatten last 3 dims
-    x = x2.view(-1, self.num_hidden_input)
-    return self.output(x)
+class ResidualBlock(nn.Module):
+    def __init__(self, in_channels, out_channels, kernel_size, padding, stride, use_depthwise=True):
+        super(ResidualBlock, self).__init__()
+        
+        if use_depthwise:
+            self.conv = DepthwiseSeparableConv2d(in_channels, out_channels, kernel_size, padding, stride)
+        else:
+            self.conv = nn.Conv2d(in_channels, out_channels, kernel_size, padding=padding, stride=stride, bias=True)
+        
+        self.bn = nn.BatchNorm2d(out_channels, affine=True)
+        self.relu = nn.ReLU()
+        self.dropout = nn.Dropout2d(0.3)  # More aggressive dropout
+        
+        # Skip connection adjustment if dimensions change
+        self.skip_connection = None
+        if in_channels != out_channels or stride != 1:
+            self.skip_connection = nn.Sequential(
+                nn.Conv2d(in_channels, out_channels, 1, stride=stride, bias=False),
+                nn.BatchNorm2d(out_channels)
+            )
+    
+    def forward(self, x):
+        identity = x
+        
+        out = self.conv(x)
+        out = self.bn(out)
+        out = self.relu(out)
+        out = self.dropout(out)
+        
+        # Adjust skip connection if needed
+        if self.skip_connection is not None:
+            identity = self.skip_connection(identity)
+        elif identity.shape != out.shape:
+            # Simple padding/cropping for shape mismatch
+            if identity.shape[2] > out.shape[2]:  # Height
+                diff = identity.shape[2] - out.shape[2]
+                identity = identity[:, :, diff//2:diff//2+out.shape[2], :]
+            if identity.shape[3] > out.shape[3]:  # Width
+                diff = identity.shape[3] - out.shape[3]
+                identity = identity[:, :, :, diff//2:diff//2+out.shape[3]]
+        
+        # Only add if shapes match exactly
+        if identity.shape == out.shape:
+            out = out + identity
+        
+        return out
 
-num_labels = len(wake_words) + 1 # oov
-num_maps1  = 48
-num_maps2  = 64
-num_hidden_input =  768
-hidden_size = 128
-model = CNN(num_labels, num_maps1, num_maps2, num_hidden_input, hidden_size)
-
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-model.to(device)
-print(model)
+class ImprovedCNN(nn.Module):
+    def __init__(self, num_labels, num_maps1, num_maps2, num_hidden_input, hidden_size):
+        super(ImprovedCNN, self).__init__()
+        self.num_hidden_input = num_hidden_input
+        
+        # First residual block
+        self.encoder1 = nn.Sequential(
+            ResidualBlock(1, num_maps1, (8, 16), padding=(4, 0), stride=(2, 2)),
+            nn.MaxPool2d(2)
+        )
+        
+        # Second residual block  
+        self.encoder2 = nn.Sequential(
+            ResidualBlock(num_maps1, num_maps2, (5, 5), padding=2, stride=(2, 1)),
+            nn.MaxPool2d(2)
+        )
+        
+        # Output layers with more aggressive dropout
+        self.output = nn.Sequential(
+            nn.Linear(num_hidden_input, hidden_size),
+            nn.ReLU(),
+            nn.Dropout(0.4),  # Increased dropout
+            nn.Linear(hidden_size, hidden_size // 2),
+            nn.ReLU(),
+            nn.Dropout(0.3),
+            nn.Linear(hidden_size // 2, num_labels)
+        )
+    
+    def forward(self, x):
+        x = x[:, :1]  # log_mels only
+        x = x.permute(0, 1, 3, 2)  # (time, n_mels)
+        
+        # Pass through residual blocks
+        x1 = self.encoder1(x)
+        x2 = self.encoder2(x1)
+        
+        # Flattening
+        x = x2.view(-1, self.num_hidden_input)
+        return self.output(x)
 
 class CNN_Cal(nn.Module):
   def __init__(self, num_labels, num_maps1, num_maps2, num_hidden_input, hidden_size):
@@ -469,8 +530,15 @@ num_maps1  = 48
 num_maps2  = 64
 num_hidden_input =  768
 hidden_size = 128
-model_calc = CNN_Cal(num_labels, num_maps1, num_maps2, num_hidden_input, hidden_size)
+
+# Use improved model
+model = ImprovedCNN(num_labels, num_maps1, num_maps2, num_hidden_input, hidden_size)
+
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+model.to(device)
+print(model)
+
+model_calc = CNN_Cal(num_labels, num_maps1, num_maps2, num_hidden_input, hidden_size)
 model_calc.to(device)
 print(model_calc)
 
@@ -478,6 +546,7 @@ print(summary(model_calc, input_size=(1,80,61)))
 print(summary(model, input_size=(1,40,61)))
 
 from typing import Iterable
+
 class ZmuvTransform(nn.Module):
   def __init__(self):
     super().__init__()
@@ -507,7 +576,22 @@ class ZmuvTransform(nn.Module):
   def forward(self, x):
     return (x - self.mean) / self.std
 
+# Per-utterance normalization transform
+class PerUtteranceNorm(nn.Module):
+    def __init__(self, eps=1e-8):
+        super().__init__()
+        self.eps = eps
+    
+    def forward(self, x):
+        # x shape: (batch, channels, n_mels, time)
+        # Normalize over n_mels and time dimensions for each utterance
+        mean = x.mean(dim=(2, 3), keepdim=True)
+        std = x.std(dim=(2, 3), keepdim=True)
+        return (x - mean) / (std + self.eps)
+
 zmuv_transform = ZmuvTransform().to(device)
+per_utterance_norm = PerUtteranceNorm().to(device)
+
 if Path(path_to_dataset_w + "zmuv.pt.bin").exists():
   zmuv_transform.load_state_dict(torch.load(str(path_to_dataset_w + "zmuv.pt.bin")))
 else:
@@ -522,40 +606,97 @@ print(f"Standard Deviation is {zmuv_transform.std.item():0.6f}")
 zmuv_mean = zmuv_transform.mean.item()
 zmuv_std = zmuv_transform.std.item()
 
+# IMPROVED TRAINING CONFIGURATION
 learning_rate = 0.001
-weight_decay = 0.0001 # Weight regularization
-lr_decay = 0.95
+# Adaptive weight decay - different rates for conv and linear layers
+conv_weight_decay = 0.0001
+linear_weight_decay = 0.001
 
-criterion = nn.CrossEntropyLoss()
-params = list(filter(lambda x: x.requires_grad, model.parameters()))
-optimizer = AdamW(params, learning_rate, weight_decay=weight_decay)
+# Label smoothing CrossEntropyLoss
+criterion = nn.CrossEntropyLoss(label_smoothing=0.1)
+
+# Separate parameter groups for adaptive weight decay
+conv_params = []
+linear_params = []
+
+for name, param in model.named_parameters():
+    if param.requires_grad:
+        if 'conv' in name or 'depthwise' in name or 'pointwise' in name:
+            conv_params.append(param)
+        else:
+            linear_params.append(param)
+
+optimizer = AdamW([
+    {'params': conv_params, 'weight_decay': conv_weight_decay},
+    {'params': linear_params, 'weight_decay': linear_weight_decay}
+], lr=learning_rate)
+
+# Cosine Annealing Warm Restarts scheduler
+scheduler = CosineAnnealingWarmRestarts(optimizer, T_0=10, T_mult=2, eta_min=1e-6)
 
 log_offset = 1e-7
 num_mels = 40 # https://en.wikipedia.org/wiki/Mel_scale
 num_fft = 512 # window length - Fast Fourier Transform
 hop_length = 200  # making hops of size hop_length each time to sample the next window
+
+# CREATE MEL SPECTROGRAM TRANSFORM ONCE AND KEEP IN GPU
+mel_spectrogram_transform = MelSpectrogram(n_mels=num_mels,
+                                          sample_rate=sr,
+                                          n_fft=num_fft,
+                                          hop_length=hop_length,
+                                          norm='slaney').to(device)
+
 def audio_transform(audio_data):
-  # Transformations
-  # Mel-scale spectrogram is a combination of Spectrogram and mel scale conversion
-  # 1. compute FFT - for each window to transform from time domain to frequency domain
-  # 2. Generate Mel Scale - Take entire freq spectrum & seperate to n_mels evenly spaced
-  #    frequencies. (not by distance on freq domain but distance as it is heard by human ear)
-  # 3. Generate Spectrogram - For each window, decompose the magnitude of the signal
-  #    into its components, corresponding to the frequencies in the mel scale.
-  mel_spectrogram  = MelSpectrogram(n_mels=num_mels,
-                                    sample_rate=sr,
-                                    n_fft=num_fft,
-                                    hop_length=hop_length,
-                                    norm='slaney')
-  mel_spectrogram.to(device)
-  log_mels = mel_spectrogram(audio_data.float()).add_(log_offset).log_().contiguous()
-  # returns (channel, n_mels, time)
-  return log_mels.to(device)
+  # Ensure audio_data is on GPU
+  if not audio_data.is_cuda:
+    audio_data = audio_data.to(device)
+  
+  # Use pre-initialized transform that's already on GPU
+  log_mels = mel_spectrogram_transform(audio_data.float()).add_(log_offset).log_().contiguous()
+  # returns (channel, n_mels, time) - already on GPU
+  return log_mels
 
-# --- Training
+# Early stopping class
+class EarlyStopping:
+    def __init__(self, patience=7, min_delta=0.001, restore_best_weights=True):
+        self.patience = patience
+        self.min_delta = min_delta
+        self.restore_best_weights = restore_best_weights
+        self.best_loss = None
+        self.counter = 0
+        self.best_weights = None
+        
+    def __call__(self, val_loss, model):
+        if self.best_loss is None:
+            self.best_loss = val_loss
+            self.save_checkpoint(model)
+        elif val_loss < self.best_loss - self.min_delta:
+            self.best_loss = val_loss
+            self.counter = 0
+            self.save_checkpoint(model)
+        else:
+            self.counter += 1
+            
+        if self.counter >= self.patience:
+            if self.restore_best_weights:
+                model.load_state_dict(self.best_weights)
+            return True
+        return False
+    
+    def save_checkpoint(self, model):
+        self.best_weights = model.state_dict().copy()
 
-# epochs = 20
+# --- IMPROVED TRAINING LOOP
+
 epochs = config_datos['train_epochs']
+
+# Verify GPU usage
+print(f"Device being used: {device}")
+print(f"Model is on GPU: {next(model.parameters()).is_cuda}")
+print(f"ZMUV transform is on GPU: {zmuv_transform.mean.is_cuda}")
+
+# Early stopping
+early_stopping = EarlyStopping(patience=10, min_delta=0.001)
 
 # config for progress bar
 mb = master_bar(range(epochs))
@@ -564,73 +705,193 @@ x = []
 
 training_losses = []
 validation_losses = []
+training_accuracies = []
+validation_accuracies = []
 
-valid_mean_min = np.Inf
+valid_mean_min = np.inf
 
 for epoch in mb:
   x.append(epoch)
-  # Evaluate
+  
+  # Training phase
   model.train()
   total_loss = torch.Tensor([0.0]).to(device)
-  #pbar = tqdm(train_dl, total=len(train_dl), position=0, desc="Training", leave=True)
+  correct_predictions = 0
+  total_predictions = 0
+  
   for batch in progress_bar(train_dl, parent=mb):
-    audio_data = batch['audio'].to(device)
-    labels = batch['labels'].to(device)
-    # get mel spectograms
+    # Data is already on GPU from AudioCollator
+    audio_data = batch['audio']  # Already on device
+    labels = batch['labels']      # Already on device
+    
+    # Verify data is on GPU
+    if not audio_data.is_cuda:
+        audio_data = audio_data.to(device)
+    if not labels.is_cuda:
+        labels = labels.to(device)
+    
+    # get mel spectograms - audio_transform now handles GPU properly
     mel_audio_data = audio_transform(audio_data)
-    # do zmuv transform
+    
+    # Apply global ZMUV normalization
     mel_audio_data = zmuv_transform(mel_audio_data)
-    predicted_scores = model(mel_audio_data.unsqueeze(1))
+    
+    # Apply per-utterance normalization
+    mel_audio_data = per_utterance_norm(mel_audio_data.unsqueeze(1))
+    
+    predicted_scores = model(mel_audio_data)
+    
     # get loss
     loss = criterion(predicted_scores, labels)
 
     optimizer.zero_grad()
-    model.zero_grad()
-
+    
     # backward propagation
     loss.backward()
+    
+    # Gradient clipping
+    torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+    
     optimizer.step()
 
     with torch.no_grad():
       total_loss += loss
+      # Calculate accuracy
+      _, predicted = torch.max(predicted_scores, 1)
+      correct_predictions += (predicted == labels).sum().item()
+      total_predictions += labels.size(0)
 
-  for group in optimizer.param_groups:
-    group["lr"] *= lr_decay
+  # Update scheduler
+  scheduler.step()
 
-  mean = total_loss / len(train_dl)
-  training_losses.append(mean.cpu())
+  train_mean = total_loss / len(train_dl)
+  train_accuracy = correct_predictions / total_predictions
+  training_losses.append(train_mean.detach().cpu().item())  # Properly detach before CPU
+  training_accuracies.append(train_accuracy)
 
-  # Evaluate
+  # Validation phase
   model.eval()
   validation_loss = torch.Tensor([0.0]).to(device)
+  correct_val_predictions = 0
+  total_val_predictions = 0
+  
   with torch.no_grad():
-    #pbar = tqdm(dev_dl, total=len(dev_dl), position=0, desc="Evaluating", leave=True)
     for batch in progress_bar(dev_dl, parent=mb):
-      audio_data = batch['audio'].to(device)
-      labels = batch['labels'].to(device)
+      # Data is already on GPU from AudioCollator
+      audio_data = batch['audio']
+      labels = batch['labels']
+      
+      # Verify data is on GPU
+      if not audio_data.is_cuda:
+          audio_data = audio_data.to(device)
+      if not labels.is_cuda:
+          labels = labels.to(device)
+      
       # get mel spectograms
       mel_audio_data = audio_transform(audio_data)
-      # do zmuv transform
+      
+      # Apply global ZMUV normalization
       mel_audio_data = zmuv_transform(mel_audio_data)
-      predicted_scores = model(mel_audio_data.unsqueeze(1))
+      
+      # Apply per-utterance normalization
+      mel_audio_data = per_utterance_norm(mel_audio_data.unsqueeze(1))
+      
+      predicted_scores = model(mel_audio_data)
+      
       # get loss
       loss = criterion(predicted_scores, labels)
       validation_loss += loss
+      
+      # Calculate accuracy
+      _, predicted = torch.max(predicted_scores, 1)
+      correct_val_predictions += (predicted == labels).sum().item()
+      total_val_predictions += labels.size(0)
 
   val_mean = validation_loss / len(dev_dl)
-  validation_losses.append(val_mean.cpu())
+  val_accuracy = correct_val_predictions / total_val_predictions
+  validation_losses.append(val_mean.detach().cpu().item())  # Properly detach before CPU
+  validation_accuracies.append(val_accuracy)
 
   # Update training chart
-  mb.update_graph([[x, training_losses], [x, validation_losses]], [0,epochs])
-  mb.write(f"\nEpoch {epoch}: Training loss {mean.item():.6f} validation loss {val_mean.item():.6f} with lr {group['lr']:.6f}")
+  mb.update_graph([[x, training_losses], [x, validation_losses]], [0, epochs])
+  
+  current_lr = optimizer.param_groups[0]['lr']
+  mb.write(f"\nEpoch {epoch}: Train loss {train_mean.item():.6f} (acc: {train_accuracy:.4f}) | "
+           f"Val loss {val_mean.item():.6f} (acc: {val_accuracy:.4f}) | LR: {current_lr:.6f}")
 
   # save model if validation loss has decreased
   if val_mean.item() <= valid_mean_min:
     print('Validation loss decreased ({:.6f} --> {:.6f}).  Saving model ...'.format(
-    valid_mean_min,
-    val_mean.item()))
+    valid_mean_min, val_mean.item()))
     torch.save(model.state_dict(), path_to_dataset_w + 'model_trained.pt')
     valid_mean_min = val_mean.item()
+  
+  # Early stopping check
+  if early_stopping(val_mean.item(), model):
+    print(f"Early stopping triggered at epoch {epoch}")
+    break
+
+# Final evaluation on test set
+model.eval()
+test_loss = torch.Tensor([0.0]).to(device)
+correct_test_predictions = 0
+total_test_predictions = 0
+all_predictions = []
+all_labels = []
+
+with torch.no_grad():
+    for batch in tqdm(test_dl, desc="Testing"):
+        audio_data = batch['audio'].to(device)
+        labels = batch['labels'].to(device)
+        
+        mel_audio_data = audio_transform(audio_data)
+        mel_audio_data = zmuv_transform(mel_audio_data)
+        mel_audio_data = per_utterance_norm(mel_audio_data.unsqueeze(1))
+        
+        predicted_scores = model(mel_audio_data)
+        loss = criterion(predicted_scores, labels)
+        test_loss += loss
+        
+        _, predicted = torch.max(predicted_scores, 1)
+        correct_test_predictions += (predicted == labels).sum().item()
+        total_test_predictions += labels.size(0)
+        
+        all_predictions.extend(predicted.cpu().numpy())
+        all_labels.extend(labels.cpu().numpy())
+
+test_mean = test_loss / len(test_dl)
+test_accuracy = correct_test_predictions / total_test_predictions
+
+print(f"\nFinal Test Results:")
+print(f"Test Loss: {test_mean.item():.6f}")
+print(f"Test Accuracy: {test_accuracy:.4f}")
+
+# Calculate per-class metrics
+from sklearn.metrics import classification_report, confusion_matrix
+import numpy as np
+
+# Classification report
+print("\nClassification Report:")
+print(classification_report(all_labels, all_predictions, target_names=wake_words_withOOV))
+
+# Confusion matrix
+print("\nConfusion Matrix:")
+cm = confusion_matrix(all_labels, all_predictions)
+print(cm)
+
+# Calculate False Accept Rate (FAR) and False Reject Rate (FRR) for each wake word
+print("\nPer-class FAR and FRR:")
+for i, word in enumerate(wake_words_withOOV):
+    if i < len(wake_words):  # Only for actual wake words, not OOV
+        tp = cm[i, i]
+        fn = cm[i, :].sum() - tp
+        fp = cm[:, i].sum() - tp
+        tn = cm.sum() - tp - fn - fp
+        
+        far = fp / (fp + tn) if (fp + tn) > 0 else 0
+        frr = fn / (fn + tp) if (fn + tp) > 0 else 0
+        
+        print(f"{word}: FAR={far:.4f}, FRR={frr:.4f}")
 
 # check if CUDA is available
 train_on_gpu = torch.cuda.is_available()
@@ -640,9 +901,25 @@ if not train_on_gpu:
 else:
   print('CUDA is available!  Training on GPU ...')
 
-torch.save(model.state_dict(), path_to_dataset_w + 'model_trained.pt')
+# Save final model
+torch.save(model.state_dict(), path_to_dataset_w + 'model_trained_improved.pt')
 
-with open(path_to_dataset_w + 'model_data.json', 'w') as archivo:
+# Save training history
+training_history = {
+    'training_losses': [loss.item() for loss in training_losses],
+    'validation_losses': [loss.item() for loss in validation_losses],
+    'training_accuracies': training_accuracies,
+    'validation_accuracies': validation_accuracies,
+    'test_loss': test_mean.item(),
+    'test_accuracy': test_accuracy,
+    'epochs_trained': len(training_losses)
+}
+
+with open(path_to_dataset_w + 'training_history.json', 'w') as f:
+    json.dump(training_history, f, indent=2)
+
+# Save improved model metadata
+with open(path_to_dataset_w + 'model_data_improved.json', 'w') as archivo:
   archivo.write(json.dumps({
     "zmuv_mean": zmuv_mean,
     "zmuv_std": zmuv_std,
@@ -652,11 +929,27 @@ with open(path_to_dataset_w + 'model_data.json', 'w') as archivo:
     "num_fft": num_fft,
     "sample_rate": sr,
     "log_offset": log_offset,
-    "train_epochs": epochs,
-    "original_path": path_to_dataset_w + 'model_trained.pt',
+    "train_epochs": len(training_losses),
+    "original_path": path_to_dataset_w + 'model_trained_improved.pt',
     "final_validation_loss": valid_mean_min,
-    "train_epochs": epochs,
+    "final_test_loss": test_mean.item(),
+    "final_test_accuracy": test_accuracy,
     "classes": wake_words_withOOV,
     "classes_base": wake_words,
-    "vanilla_noise_in_negative_dataset": add_vanilla_noise_to_negative_dataset
-  }))
+    "vanilla_noise_in_negative_dataset": add_vanilla_noise_to_negative_dataset,
+    "improvements": [
+        "depthwise_separable_convolutions",
+        "residual_connections", 
+        "cosine_annealing_scheduler",
+        "gradient_clipping",
+        "label_smoothing",
+        "per_utterance_normalization",
+        "aggressive_dropout",
+        "adaptive_weight_decay",
+        "early_stopping"
+    ]
+  }, indent=2))
+
+print(f"\nTraining completed! Models and history saved.")
+print(f"Best validation loss: {valid_mean_min:.6f}")
+print(f"Final test accuracy: {test_accuracy:.4f}")
