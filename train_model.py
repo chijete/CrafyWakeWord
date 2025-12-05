@@ -78,6 +78,15 @@ else:
 
 print("NOTE: Running this file may take several minutes.")
 
+if not torch.cuda.is_available():
+  print('CUDA is not available.  Train on CPU.')
+else:
+  print('CUDA is available!  Train on GPU.')
+
+# sys.exit()
+
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
 wake_words_withOOV = wake_words[:]
 wake_words_withOOV.append("oov")
 
@@ -113,6 +122,16 @@ positive_test_data = pd.read_csv(path_to_dataset_w+'positive/test.csv')
 negative_train_data = pd.read_csv(path_to_dataset_w+'negative/train.csv')
 negative_dev_data = pd.read_csv(path_to_dataset_w+'negative/dev.csv')
 negative_test_data = pd.read_csv(path_to_dataset_w+'negative/test.csv')
+
+negative_train_data['sentence'] = negative_train_data['sentence'].apply(
+  lambda x: x if isinstance(x, str) and x.strip() != "" else "Ouhbg agihugy uagoboiuslv bofieglk"
+)
+negative_dev_data['sentence'] = negative_dev_data['sentence'].apply(
+  lambda x: x if isinstance(x, str) and x.strip() != "" else "Ouhbg agihugy uagoboiuslv bofieglk"
+)
+negative_test_data['sentence'] = negative_test_data['sentence'].apply(
+  lambda x: x if isinstance(x, str) and x.strip() != "" else "Ouhbg agihugy uagoboiuslv bofieglk"
+)
 
 # Add vanilla noise to negative dataset
 max_noise_duration = 90000
@@ -154,6 +173,23 @@ print(f"Max duration in negative dev {negative_dev_data['duration'].max()}")
 print(f"Min duration in negative dev {negative_dev_data['duration'].min()}")
 print(f"Max duration in negative test {negative_test_data['duration'].max()}")
 print(f"Min duration in negative test {negative_test_data['duration'].min()}")
+
+print('positive_train_data head:')
+print(positive_train_data.head(10))
+print('negative_train_data head:')
+print(negative_train_data.head(10))
+
+print('positive_train_data tail:')
+print(positive_train_data.tail(10))
+print('negative_train_data tail:')
+print(negative_train_data.tail(10))
+
+print(f"positive_train_data size {positive_train_data.shape}")
+print(f"positive_dev_data size {positive_dev_data.shape}")
+print(f"positive_test_data size {positive_test_data.shape}")
+print(f"negative_train_data size {negative_train_data.shape}")
+print(f"negative_dev_data size {negative_dev_data.shape}")
+print(f"negative_test_data size {negative_test_data.shape}")
 
 train_ds = pd.concat([positive_train_data , negative_train_data]).sample(frac=1).reset_index(drop=True)
 dev_ds = pd.concat([positive_dev_data , negative_dev_data]).sample(frac=1).reset_index(drop=True)
@@ -268,6 +304,11 @@ for word in wake_words:
   word_pattern = re.compile(r'\b'+word+r'\b', flags=re.IGNORECASE)
   print(word + f" (2) Total word {(train_ds[[wake_words_search(word_pattern, sentence) for sentence in train_ds['sentence']]].size/train_ds.size) * 100} %")
 
+print('oov' + f" (2) Total {(train_ds[[not wake_words_search(pattern, sentence) for sentence in train_ds['sentence']]].size/train_ds.size) * 100} %")
+
+print('train_ds.tail:')
+print(train_ds.tail(20))
+
 # --- Add noise
 noise_train = noise_train_complete[:int(len(noise_train_complete) * 0.8)]
 noise_dev = noise_train_complete[int(len(noise_train_complete) * 0.8):]
@@ -275,20 +316,23 @@ noise_dev = noise_train_complete[int(len(noise_train_complete) * 0.8):]
 # random.randint(0,len(noise_dev))
 # print noise data stats
 print(f"Train noise dataset {len(noise_train)}")
-print(f"Train noise dataset {len(noise_dev)}")
-print(f"Train noise dataset {len(noise_test)}")
+print(f"Validation noise dataset {len(noise_dev)}")
+print(f"Test noise dataset {len(noise_test)}")
+
+# Detener aquí para revisión del dataset, después de esto ya empieza entrenamiento.
+# sys.exit()
 
 key_pattern = re.compile("\'(?P<k>[^ ]+)\'")
 def compute_labels(metadata, audio_data):
   label = len(wake_words) # by default negative label
 
   # if it is generated data then
-  if metadata['sentence'].lower() in wake_words:
+  if metadata['sentence'].lower() in wake_words and not metadata['timestamps']:
     label = int(wake_word_seq_map[metadata['sentence'].lower()])
   else:
     # if the sentence has one wakeword get label and end timestamp
+    wake_word_found = False
     for word in metadata['sentence'].lower().split():
-      wake_word_found = False
       word = re.sub('\W+', '', word)
       if word in wake_words:
         wake_word_found = True
@@ -306,6 +350,15 @@ def compute_labels(metadata, audio_data):
         audio_data = audio_data[audio_start_idx:audio_end_idx]
       else: # if there are issues with word alignment, we might not get ts
         label = len(wake_words)  # mark them for negative
+    else: # is negative data
+      if metadata['timestamps'] and type(metadata['timestamps']) == str: # si tiene timestamps recorto una palabra aleatoria
+        timestamps = json.loads(key_pattern.sub(r'"\g<k>"', metadata['timestamps']))
+        if timestamps:
+          randomWord = random.choice(list(timestamps.keys()))
+          word_ts = timestamps[randomWord]
+          audio_start_idx = int((word_ts['start'] * 1000) * sr / 1000)
+          audio_end_idx = int((word_ts['end'] * 1000) * sr / 1000)
+          audio_data = audio_data[audio_start_idx:audio_end_idx]
 
   return label, audio_data
 
@@ -534,7 +587,6 @@ hidden_size = 128
 # Use improved model
 model = ImprovedCNN(num_labels, num_maps1, num_maps2, num_hidden_input, hidden_size)
 
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 model.to(device)
 print(model)
 
@@ -906,13 +958,16 @@ torch.save(model.state_dict(), path_to_dataset_w + 'model_trained_improved.pt')
 
 # Save training history
 training_history = {
-    'training_losses': [loss.item() for loss in training_losses],
-    'validation_losses': [loss.item() for loss in validation_losses],
+    'training_losses': [loss for loss in training_losses],
+    'validation_losses': [loss for loss in validation_losses],
     'training_accuracies': training_accuracies,
     'validation_accuracies': validation_accuracies,
     'test_loss': test_mean.item(),
     'test_accuracy': test_accuracy,
-    'epochs_trained': len(training_losses)
+    'epochs_trained': len(training_losses),
+    'training_dataset_size': train_ds.shape[0],
+    'validation_dataset_size': dev_ds.shape[0],
+    'test_dataset_size': test_ds.shape[0]
 }
 
 with open(path_to_dataset_w + 'training_history.json', 'w') as f:

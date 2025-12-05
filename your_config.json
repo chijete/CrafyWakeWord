@@ -14,6 +14,14 @@
   "add_vanilla_noise_to_negative_dataset": true,
   "voices_generation_with_google": true,
   "custom_dataset_path": "custom_dataset/",
+  "custom_dataset_flow_path": "custom_dataset_flow/",
+  "negative_data_proportion": 46,
+  "tts_generated_amounts": {
+    "train": 8553,
+    "dev": 2785,
+    "test": 2785
+  },
+  "negative_with_sentence_percent": 0.4,
   "tts_generated_clips": {
     "rate": {
       "start": 0.5,

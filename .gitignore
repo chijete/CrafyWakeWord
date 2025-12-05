@@ -6,7 +6,10 @@
 /LEER.txt
 /dataset_backups/
 /custom_dataset/clips/
-/custom_dataset/train.csv
 /custom_dataset/test.csv
 /custom_dataset/dev.csv
+/custom_dataset/train*
 /v2_dataset/
+/custom_dataset_flow/input_zips/
+/custom_dataset_flow/output_unified/
+/custom_dataset_copy_sec/

@@ -51,6 +51,7 @@ Follow these steps:
 2. Unzip the downloaded Mozilla Common Voice file and copy the "cv-corpus-..." folder to the folder where you cloned the repository.
 
 ### 3. Install dependencies
+Python version: Python 3.11.13
 Run this commands in your terminal (conda activate first) or Anaconda terminal:
 - `pip install librosa textgrid torchsummary ffmpeg-python pocketsphinx fastprogress chardet PyAudio clang pgvector hdbscan initdb speechbrain`
 - `pip install --upgrade google-cloud-texttospeech`
@@ -127,7 +128,7 @@ You can port this model to other platforms such as ONNX or TensorFlow.
 1. Verify that the PyTorch model is located in the path `dataset/model_trained.pt`
 2. Run this command in the root of the directory where you cloned the repository: `python convert_to_onnx.py`
 3. Run this command: `python convert_onnx_to_tf.py` (If that doesn't work, run `python convert_onnx_to_tf_onlyLinux.py` in a Linux environment like WSL or Ubuntu.).
-4. The TensorFlow model will be saved in `dataset/tf_model_trained`, and the TensorFlow Lite model will be saved in `dataset/tf_model_trained.tflite`
+4. The TensorFlow model will be saved in `dataset/tf_model_trained_improved`, and the TensorFlow Lite model will be saved in `dataset/tf_model_trained_improved.tflite`
 
 #### Port model to TensorFlow.js
 After porting the model to TensorFlow, run the following commands:
@@ -135,7 +136,7 @@ After porting the model to TensorFlow, run the following commands:
 2. `conda activate tfjsconverter`
 3. `pip install tensorflowjs[wizard]` (only in first execution)
 4. `tensorflowjs_wizard`
-	1. ? Please provide the path of model file or the directory that contains model files. `dataset/tf_model_trained`
+	1. ? Please provide the path of model file or the directory that contains model files. `dataset/tf_model_trained_improved`
 	2. ? What is your input model format? `Tensorflow Saved Model *`
 	3. ? What is tags for the saved model? `serve`
 	4. ? What is signature name of the model? `serving_default`
@@ -152,12 +153,12 @@ After porting the model to TensorFlow, run the following commands:
 
 Before training a new model for the same trigger words, make a copy and delete the following files/directories:
 
-- `dataset/tf_model_trained/`
+- `dataset/tf_model_trained_improved/`
 - `dataset/web_model/`
 - `dataset/model_data.json`
 - `dataset/model_trained.pt`
 - `dataset/onnx_model_trained.onnx`
-- `dataset/tf_model_trained.tflite`
+- `dataset/tf_model_trained_improved.tflite`
 - `dataset/zmuv.pt.bin`
 
 Before training a completely new model, make sure to make a copy and delete the following files/directories:
