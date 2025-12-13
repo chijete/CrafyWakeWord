@@ -489,12 +489,12 @@ def main():
   checkpoint_dir = join(dataset_base, 'checkpoints')
   os.makedirs(checkpoint_dir, exist_ok=True)
   
-  sr = 16000
-  window_ms = 1000 
-  batch_size = 32
+  sr = config.get('sample_rate', 16000)
+  window_ms = config.get('window_size_ms', 1000)
+  batch_size = config.get('batch_size', 32)
   num_workers = 0 
   lr = 1e-3
-  max_epochs = 30
+  max_epochs = config.get('train_epochs', 30)
   n_mels = 64
   n_fft = 512
   
