@@ -1,7 +1,7 @@
 {
   "common_voice_datapath": "corpus/cv-corpus-15.0-2023-09-08/es/",
   "wake_words": [
-    "almeja"
+    "patata"
   ],
   "google_credentials_file": "cloud_credentials.json",
   "mfa_DICTIONARY_PATH": "mfa/spanish_mfa.dict",
@@ -13,7 +13,7 @@
   "batch_size": 32,
   "num_workers": 0,
   "add_vanilla_noise_to_negative_dataset": true,
-  "voices_generation_with_google": false,
+  "voices_generation_with_google": true,
   "custom_dataset_path": "custom_dataset/",
   "custom_dataset_flow_path": "custom_dataset_flow/",
   "hnm_pool_source": "dataset/negative/pool.csv",
