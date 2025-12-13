@@ -1,25 +1,28 @@
 {
   "common_voice_datapath": "corpus/cv-corpus-15.0-2023-09-08/es/",
   "wake_words": [
-    "almeja",
-    "cerebro",
-    "patata"
+    "almeja"
   ],
   "google_credentials_file": "cloud_credentials.json",
   "mfa_DICTIONARY_PATH": "mfa/spanish_mfa.dict",
   "mfa_ACOUSTIC_MODEL_PATH": "mfa/spanish_mfa.zip",
   "dataset_language": "es",
   "window_size_ms": 750,
-  "train_epochs": 30,
+  "train_epochs": 3,
+  "sample_rate": 16000,
+  "batch_size": 32,
+  "num_workers": 0,
   "add_vanilla_noise_to_negative_dataset": true,
-  "voices_generation_with_google": true,
+  "voices_generation_with_google": false,
   "custom_dataset_path": "custom_dataset/",
   "custom_dataset_flow_path": "custom_dataset_flow/",
-  "negative_data_proportion": 46,
+  "hnm_pool_source": "dataset/negative/pool.csv",
+  "negative_data_proportion": 1300,
+  "hnm_pool_size": 20000,
   "tts_generated_amounts": {
-    "train": 8553,
-    "dev": 2785,
-    "test": 2785
+    "train": 2784,
+    "dev": 928,
+    "test": 928
   },
   "negative_with_sentence_percent": 0.4,
   "tts_generated_clips": {

@@ -1,15 +1,6 @@
 # CrafyWakeWord
 CrafyWakeWord it's a library focused on AI-based wake word recognition.
 
-# ALTERNATIVE VERSION 🚀
-We have launched CrafyWakeWord2: CrafyWakeWord2 is an alternative version of this library that uses wav2vec2 retraining.
-
-Running CrafyWakeWord2 is noticeably more resource-intensive.
-
-Link: https://github.com/chijete/CrafyWakeWord2
-
-⚠️ We currently recommend CrafyWakeWord.
-
 ## ⭐ Features and functions
 - Custom wake word recognition.
 - Multiple language support.
@@ -102,16 +93,27 @@ Edit `your_config.json` file:
 - `"tts_generated_clips"` config of clips generation with the Google Cloud Text-to-Speech API.
 	- `"rate"` Speed ​​range of the voices of the generated audios (start, stop and step for np.arange). Min 0.25, max 4.0.
 	- `"pitch"` Pitch ​​range of the voices of the generated audios (start, stop and step for np.arange). Min -20.0, max 20.0.
+- `"hnm_pool_source"` (string) Path to the CSV file containing the audio from the HNM (Hard Negative Mining) dataset.
 
 ### 6. Prepare and train the model
 Run these commands within your conda environment:
 - `python dataset_generation.py` (sorts Mozilla Common Voice audio files)
 - `python align.py` (runs Montreal Forced Aligner to align the audios)
 - `python align_manage.py` (accommodates the results of Montreal Forced Aligner)
+
+#### Train v3
 - `python train_model.py` (generates additional training data using the Google Cloud Text-to-Speech API and applying noise, and prepares and trains the final model)
 
+#### Train v4
+- `python train_model_improved.py` (Train the model with version 4 of CrafyWakeWord, which offers significantly better results. It only supports one wake word)
+
 ### 7. Test the model
+
+#### Train v3
 You can test the detection of wake words by running the `use_model.py` file and saying the words in order as shown in the console. (It is necessary to have a microphone connected).
+
+#### Train v4
+If you trained the model with version 4 of CraftyWakeWord, you can test the trained model by running this command: `python run_inference.py`. (It is necessary to have a microphone connected).
 
 **Note:** This tutorial is primarily designed for Windows.
 
@@ -120,9 +122,15 @@ The resulting file when creating a model with CrafyWakeWord is a PyTorch model f
 You can port this model to other platforms such as ONNX or TensorFlow.
 
 ### Port model to ONNX
+
+#### Train v3
 1. Verify that the PyTorch model is located in the path `dataset/model_trained.pt`
 2. Run this command in the root of the directory where you cloned the repository: `python convert_to_onnx.py`
 3. The ONNX model will be saved in `dataset/onnx_model_trained.onnx`
+
+#### Train v4
+1. Run `python export_to_onnx.py`
+3. The ONNX model will be saved in `webapp/model/wakeword_model.onnx` (float32) and `webapp/model/wakeword_model.quant.onnx` (int8).
 
 ### Port model to TensorFlow
 1. Verify that the PyTorch model is located in the path `dataset/model_trained.pt`
@@ -199,3 +207,12 @@ Additional thanks to:
 - [Mozilla Common Voice](https://commonvoice.mozilla.org/ "Mozilla Common Voice")
 - [Montreal Forced Aligner](https://montreal-forced-aligner.readthedocs.io/ "Montreal Forced Aligner")
 - [Google Cloud Text-to-Speech API](https://cloud.google.com/text-to-speech "Google Cloud Text-to-Speech API")
+
+# ALTERNATIVE VERSION 🚀
+We have launched CrafyWakeWord2: CrafyWakeWord2 is an alternative version of this library that uses wav2vec2 retraining.
+
+Running CrafyWakeWord2 is noticeably more resource-intensive.
+
+Link: https://github.com/chijete/CrafyWakeWord2
+
+⚠️ We currently recommend CrafyWakeWord.

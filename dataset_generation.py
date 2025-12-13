@@ -119,9 +119,12 @@ positive_train_amount = positive_train_data.shape[0] + config_datos['tts_generat
 positive_dev_amount = positive_dev_data.shape[0] + config_datos['tts_generated_amounts']['dev']
 positive_test_amount = positive_test_data.shape[0] + config_datos['tts_generated_amounts']['test']
 
-negative_train_data = negative_train_data.sample(int(positive_train_amount / 100 * config_datos['negative_data_proportion']))
+negative_train_data = negative_train_data.sample(int(positive_train_amount / 100 * config_datos['negative_data_proportion']) + config_datos['hnm_pool_size'])
 negative_dev_data = negative_dev_data.sample(int(positive_dev_amount / 100 * config_datos['negative_data_proportion']))
 negative_test_data = negative_test_data.sample(int(positive_test_amount / 100 * config_datos['negative_data_proportion']))
+
+negative_pool_data = negative_train_data.tail(config_datos['hnm_pool_size']).copy()
+negative_train_data = negative_train_data[:-config_datos['hnm_pool_size']]
 
 if isinstance(custom_train_data_only, pd.DataFrame) and not custom_train_data_only.empty:
   custom_negative_train_data = custom_train_data_only[[not wake_words_search(pattern, sentence) for sentence in custom_train_data_only['sentence']]]
@@ -148,6 +151,9 @@ negative_dev_data['sentence'] = negative_dev_data['sentence'].apply(
   lambda x: x if isinstance(x, str) else ""
 )
 negative_test_data['sentence'] = negative_test_data['sentence'].apply(
+  lambda x: x if isinstance(x, str) else ""
+)
+negative_pool_data['sentence'] = negative_pool_data['sentence'].apply(
   lambda x: x if isinstance(x, str) else ""
 )
 
@@ -208,6 +214,7 @@ jsonFileData = {
   'negative_train_amount': negative_train_data.shape[0],
   'negative_dev_amount': negative_dev_data.shape[0],
   'negative_test_amount': negative_test_data.shape[0],
+  'negative_pool_data': negative_pool_data.shape[0],
   'negative_train_data_with_sentence': negative_train_data_with_sentence.shape[0],
   'negative_dev_data_with_sentence': negative_dev_data_with_sentence.shape[0],
   'negative_test_data_with_sentence': negative_test_data_with_sentence.shape[0],
@@ -238,6 +245,7 @@ positive_test_data.to_json(jsons_container_folder + 'positive_test_data.json')
 negative_train_data.to_json(jsons_container_folder + 'negative_train_data.json')
 negative_dev_data.to_json(jsons_container_folder + 'negative_dev_data.json')
 negative_test_data.to_json(jsons_container_folder + 'negative_test_data.json')
+negative_pool_data.to_json(jsons_container_folder + 'negative_pool_data.json')
 
 # copy audios dataset
 wake_word_datapath = 'dataset'
@@ -265,6 +273,7 @@ positive_test_data[['path', 'sentence']].to_csv(wake_word_datapath + "/positive/
 negative_train_data[['path', 'sentence']].to_csv(wake_word_datapath  + "/negative/train.csv", index=False)
 negative_dev_data[['path', 'sentence']].to_csv(wake_word_datapath  + "/negative/dev.csv", index=False)
 negative_test_data[['path', 'sentence']].to_csv(wake_word_datapath  + "/negative/test.csv", index=False)
+negative_pool_data[['path', 'sentence']].to_csv(wake_word_datapath  + "/negative/pool.csv", index=False)
 
 def save_wav_lab(path, filename, sentence, decibels=40):
   # load file
